@@ -299,7 +299,7 @@ RETURN labels(node) AS type,count(*)</code></pre>
                             <div class="listingblock">
                                 <div class="content">
     <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
-            class="cypher language-cypher">MATCH (i:Intermediary) WHERE size( (i)--() ) &gt; 100 AND i.sourceID STARTS WITH "Paradise Papers"
+            class="cypher language-cypher">MATCH (i:Intermediary) WHERE size( [p=(i)--&gt;()|p] ) &gt; 100 AND i.sourceID STARTS WITH "Paradise Papers"
 MATCH (i)-[connection]-(entity)
 RETURN i.name as intermediary, type(connection) as relationship, head(labels(entity)) as type, count(*) as count
 ORDER BY count DESC LIMIT 20</code></pre>
@@ -316,7 +316,7 @@ ORDER BY count DESC LIMIT 20</code></pre>
                     <div class="listingblock">
                         <div class="content">
     <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
-            class="cypher language-cypher">MATCH (i:Intermediary) WHERE i.sourceID STARTS WITH "Paradise Papers" AND size( (i)--() ) &gt; 100
+            class="cypher language-cypher">MATCH (i:Intermediary) WHERE i.sourceID STARTS WITH "Paradise Papers" AND size( [p=(i)--&gt;()|p] ) &gt; 100
 MATCH (i)-[connection]-(entity)
 RETURN i.name as intermediary, type(connection) as relationship, head(labels(entity)) as type, count(*) as count
 ORDER BY count DESC LIMIT 20</code></pre>
@@ -524,7 +524,7 @@ LIMIT 100</code></pre>
 <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
         class="cypher language-cypher">MATCH (o1:Officer)-[r1]-&gt;(e:Entity)&lt;-[r2]-(o2:Officer)
 USING JOIN ON e
-WHERE id(o1) &lt; id(o2) AND size( (o1)--&gt;() ) &gt; 10 AND size( (o2)--&gt;() ) &gt; 10 AND o1.sourceID STARTS WITH "Paradise Papers"
+WHERE id(o1) &lt; id(o2) AND size( [p=(o1)--&gt;()|p] ) &gt; 10 AND size( [q=(o2)--&gt;()|q] ) &gt; 10 AND o1.sourceID STARTS WITH "Paradise Papers"
 WITH o1,o2,count(*) as freq, collect(e)[0..10] as entities
 WHERE freq &gt; 10
 WITH * ORDER BY freq DESC LIMIT 10
@@ -544,7 +544,7 @@ RETURN o1.name, o2.name, freq, [e IN entities | e.name]
 USING JOIN ON e
 WHERE id(o1) &lt; id(o2) AND NOT o1.name CONTAINS "LIMITED" AND NOT o1.name CONTAINS "Limited" AND o1.sourceID STARTS WITH "Paradise Papers"
 AND NOT o2.name CONTAINS "Limited" AND NOT o2.name CONTAINS "LIMITED"
-AND size( (o1)--&gt;() ) &gt; 10 AND size( (o2)--&gt;() ) &gt; 10
+AND size( [p=(o1)--&gt;()|p] ) &gt; 10 AND size( [q=(o2)--&gt;()|q] ) &gt; 10
 WITH o1,o2,count(*) as freq, collect(e)[0..10] as entities
 WHERE freq &gt; 10
 WITH * ORDER BY freq DESC LIMIT 10
@@ -563,7 +563,7 @@ RETURN o1.name, o2.name, freq, [e IN entities | e.name]
 USING JOIN ON e
 WHERE id(o1) &lt; id(o2) AND NOT o1.name CONTAINS "LIMITED" AND NOT o1.name CONTAINS "Limited" AND o1.sourceID STARTS WITH "Paradise Papers"
 AND NOT o2.name CONTAINS "Limited" AND NOT o2.name CONTAINS "LIMITED"
-AND size( (o1)--&gt;() ) &gt; 10 AND size( (o2)--&gt;() ) &gt; 10
+AND size( [p=(o1)--&gt;()|p] ) &gt; 10 AND size( [q=(o2)--&gt;()|q] ) &gt; 10
 WITH o1,o2,count(*) as freq, collect(e)[0..10] as entities
 WHERE freq &gt; 200
 RETURN o1,o2,apoc.create.vRelationship(o1,'JOINT',{freq:freq,entities:[e IN entities| e.name]},o2)
@@ -758,7 +758,7 @@ ORDER BY number DESC LIMIT 10</code></pre>
           <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
                   class="cypher language-cypher">MATCH (a:Address)&lt;-[:registered_address]-(o:Officer),
 (o)-->(e:Entity)<-[:intermediary_of]-(i:Intermediary)
-WHERE a.address CONTAINS '<span value-key="state">Isle of Man</span>' AND a.sourceID STARTS WITH "Paradise Papers"
+WHERE a.countries CONTAINS '<span value-key="state">Isle of Man</span>' AND a.sourceID STARTS WITH "Paradise Papers"
 RETURN i.name AS intermediary, count(DISTINCT e) AS number 
 ORDER BY number DESC LIMIT 10</code></pre>
                         </div>
@@ -787,7 +787,7 @@ ORDER BY number DESC LIMIT 10</code></pre>
                     </div>
 
                     <div class="paragraph">
-                        <p><em>We used Solr as a full text search engine to search across all data.
+                        <p><em>You would have used Solr as a full text search engine to search across all data.
                             But you can do the same in Neo4j directly, both use Apache Lucene under the hood for full
                             text search.</em></p>
                     </div>
@@ -804,9 +804,8 @@ ORDER BY number DESC LIMIT 10</code></pre>
                     <div class="listingblock">
                         <div class="content">
 <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
-        class="cypher language-cypher">call db.index.fulltext.createNodeIndex('search',
-        ['Officer','Intermediary','Address','Entity'],
-        ['name','address'])</code></pre>
+        class="cypher language-cypher">CREATE FULLTEXT INDEX offshore FOR (n:Officer|Intermediary|Address|Entity) 
+        ON EACH [n.name, n.countries, n.address, n.service_provider, n.former_name, n.company_type]</code></pre>
                         </div>
                     </div>
                     <!--div class="paragraph">
@@ -815,7 +814,8 @@ ORDER BY number DESC LIMIT 10</code></pre>
                     <div class="listingblock">
                         <div class="content">
 <pre mode="cypher" class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
-        class="cypher language-cypher">call db.indexDetails('search')</code></pre>
+        class="cypher language-cypher">SHOW INDEXES YIELD name, type, labelsOrTypes, properties, options
+WHERE type = "FULLTEXT" and name = 'offshore'</code></pre>
                         </div>
                     </div-->
                     <div class="paragraph">
@@ -844,8 +844,8 @@ ORDER BY number DESC LIMIT 10</code></pre>
                         <div class="content">
                             <pre mode="cypher"
                             class="highlight pre-scrollable code runnable standalone-example ng-binding"><code
-                               class="cypher language-cypher">CALL db.index.fulltext.queryNodes('search','<span
-                               value-key="search">Nike</span>',{limit:10})</code></pre>
+                               class="cypher language-cypher">CALL db.index.fulltext.queryNodes("offshore", "nike") YIELD node, score
+                               RETURN node.name, score</pre>
                         </div>
                     </div>
                 </div>
